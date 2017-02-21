@@ -76,6 +76,7 @@ class LSTMTDNN(Model):
     self.use_progressbar = use_progressbar
 
     self.loader = BatchLoader(self.data_dir, self.dataset_name, self.batch_size, self.seq_length, self.max_word_length)
+
     print('Word vocab size: %d, Char vocab size: %d, Max word length (incl. padding): %d' % \
         (len(self.loader.idx2word), len(self.loader.idx2char), self.loader.max_word_length))
 
@@ -111,8 +112,10 @@ class LSTMTDNN(Model):
         self.char_inputs = tf.placeholder(tf.int32, [self.batch_size, self.seq_length, self.max_word_length])
         self.word_inputs = tf.placeholder(tf.int32, [self.batch_size, self.seq_length])
 
-        char_indices = tf.split(1, self.seq_length, self.char_inputs)
-        word_indices = tf.split(1, self.seq_length, tf.expand_dims(self.word_inputs, -1))
+        char_indices = tf.split(self.char_inputs, self.seq_length,axis=1)
+
+        word_indices = tf.split(tf.expand_dims(self.word_inputs, -1),self.seq_length,axis=1)
+        
 
         for idx in xrange(self.seq_length):
           char_index = tf.reshape(char_indices[idx], [-1, self.max_word_length])
@@ -124,7 +127,7 @@ class LSTMTDNN(Model):
           if self.use_char:
             # [batch_size x word_max_length, char_embed]
             char_embed = tf.nn.embedding_lookup(char_W, char_index)
-
+            
             char_cnn = TDNN(char_embed, self.char_embed_dim, self.feature_maps, self.kernels)
 
             if self.use_word:
@@ -142,15 +145,15 @@ class LSTMTDNN(Model):
 
           if highway:
             #cnn_output = highway(input_, input_dim_length, self.highway_layers, 0)
-            cnn_output = highway(cnn_output, cnn_output.get_shape()[1], self.highway_layers, 0)
+            cnn_output = highway(cnn_output, cnn_output.get_shape().as_list()[1], self.highway_layers, 0)
 
           self.cnn_outputs.append(cnn_output)
 
       with tf.variable_scope("LSTM") as scope:
-        self.cell = tf.nn.rnn_cell.BasicLSTMCell(self.rnn_size)
-        self.stacked_cell = tf.nn.rnn_cell.MultiRNNCell([self.cell] * self.layer_depth)
+        self.cell = tf.contrib.rnn.BasicLSTMCell(self.rnn_size)
+        self.stacked_cell = tf.contrib.rnn.MultiRNNCell([self.cell] * self.layer_depth)
 
-        outputs, _ = tf.nn.rnn(self.stacked_cell,
+        outputs, _ = tf.contrib.rnn.static_rnn(self.stacked_cell,
                                self.cnn_outputs,
                                dtype=tf.float32)
 
@@ -159,7 +162,7 @@ class LSTMTDNN(Model):
             [self.batch_size, self.seq_length])
 
         loss = 0
-        true_outputs = tf.split(1, self.seq_length, self.true_outputs)
+        true_outputs = tf.split(self.true_outputs, self.seq_length,axis=1)
 
         for idx, (top_h, true_output) in enumerate(zip(outputs, true_outputs)):
           if self.dropout_prob > 0:

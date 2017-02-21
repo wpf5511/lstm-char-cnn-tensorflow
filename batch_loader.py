@@ -46,7 +46,10 @@ class BatchLoader(object):
     for split, data in enumerate(all_data): # split = 0:train, 1:valid, 2:test
       length = data.shape[0]
       #if length % (batch_size * seq_length) != 0 and split < 2:
-      data = data[: batch_size * seq_length * math.floor(length / (batch_size * seq_length))]
+      data_index = batch_size * seq_length * int(length/(batch_size * seq_length))
+      data = data[:data_index]
+      print('data_length{}'.format(length))
+      print('data_shape{}'.format(data.shape))
       ydata = np.zeros_like(data)
       ydata[:-1] = data[1:].copy()
       ydata[-1] = data[0].copy()
@@ -58,6 +61,7 @@ class BatchLoader(object):
       if split < 2:
         x_batches = list(data.reshape([-1, batch_size, seq_length]))
         y_batches = list(ydata.reshape([-1, batch_size, seq_length]))
+        print('data_char shape:{}'.format(data_char.shape))
         x_char_batches = list(data_char.reshape([-1, batch_size, seq_length, self.max_word_length]))
         self.sizes.append(len(x_batches))
       else:

@@ -38,6 +38,6 @@ class TDNN(Model):
       layers.append(tf.squeeze(pool))
 
     if len(kernels) > 1:
-      self.output = tf.concat(1, layers)
+      self.output = tf.concat(layers,1)
     else:
       self.output = layers[0]
