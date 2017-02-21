@@ -168,20 +168,21 @@ class LSTMTDNN(Model):
           if self.dropout_prob > 0:
             top_h = tf.nn.dropout(top_h, self.dropout_prob)
 
+        
           if self.hsm > 0:
             self.lstm_outputs.append(top_h)
           else:
             if idx != 0:
               scope.reuse_variables()
-            proj = tf.nn.rnn_cell._linear(top_h, self.word_vocab_size, 0)
+            proj = tf.contrib.layers.linear(top_h, self.word_vocab_size)
             self.lstm_outputs.append(proj)
 
-          loss += tf.nn.sparse_softmax_cross_entropy_with_logits(self.lstm_outputs[idx], tf.squeeze(true_output))
+          loss += tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.squeeze(true_output),logits=self.lstm_outputs[idx])
 
         self.loss = tf.reduce_mean(loss) / self.seq_length
 
-        tf.scalar_summary("loss", self.loss)
-        tf.scalar_summary("perplexity", tf.exp(self.loss))
+        tf.summary.scalar("loss", self.loss)
+        tf.summary.scalar("perplexity", tf.exp(self.loss))
 
   def train(self, epoch):
     cost = 0
@@ -266,6 +267,7 @@ class LSTMTDNN(Model):
 
     # clip gradients
     params = tf.trainable_variables()
+    print('trainable_params',params)
     grads = []
     for grad in tf.gradients(self.loss, params):
       if grad is not None:
@@ -286,8 +288,8 @@ class LSTMTDNN(Model):
       print("[!] Failed to load model for %s." % self.dataset_name)
 
     self.saver = tf.train.Saver()
-    self.merged_summary = tf.merge_all_summaries()
-    self.writer = tf.train.SummaryWriter("./logs", self.sess.graph_def)
+    self.merged_summary = tf.summary.merge_all()
+    self.writer = tf.summary.FileWriter("./logs", self.sess.graph)
 
     self.log_loss = []
     self.log_perp = []
